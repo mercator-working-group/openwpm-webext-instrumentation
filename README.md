@@ -7,7 +7,7 @@ Allows WebExtensions to track and monitor privacy-related browsing behavior
 This package is yet to be published to npm, but can be installed directly from Github as follows:
 
 ```
-npm install --save mozilla/openwpm-webext-instrumentation
+npm install --save mercator-working-group/openwpm-webext-instrumentation
 ```
 
 ## Instrumentation
