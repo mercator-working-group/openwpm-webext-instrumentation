@@ -20,6 +20,7 @@ export const pageScript = function({
   const {
     instrumentObject,
     // instrumentObjectProperty,
+    logCall,
   } = jsInstruments(event_id, sendMessagesToLogger);
 
   const testing =
@@ -67,15 +68,71 @@ export const pageScript = function({
 
   prebidJsAvailable.then(function() {
     console.log("Prebid.js available - instrumenting...");
-    instrumentObject(
-      (window as any).pbjs,
-      "pbjs",
-      {},
-    );
-  });
 
-  // TODO instrument prebid.js events
-  //
+    // Instrument events (Hack, since OpenWPM does not support instrumentation of events currently)
+    const instrumentPrebidJsEvent = eventReference => {
+      const handler = event => {
+        // console.log("Prebid.js event", { eventReference, event }, arguments);
+        /*
+        Most don't, but some events contains some information about it's call context:
+        canonicalUrl: undefined​​​
+        numIframes: ​​​0
+        reachedTop: true
+        referer: "http://localtest.me:8000/test_pages/prebidjs.html"​​
+        stack: (1) […]​​​​
+        0: "http://localtest.me:8000/test_pages/prebidjs.html"
+        length: 1
+        */
+        const refererInfo =
+          event.refererInfo && event.refererInfo.referer
+            ? event.refererInfo.referer
+            : null;
+        const canonicalUrl = event.canonicalUrl
+          ? event.refererInfo.canonicalUrl
+          : null;
+        const callContext = {
+          scriptUrl:
+            refererInfo !== null
+              ? refererInfo
+              : canonicalUrl !== null
+              ? canonicalUrl
+              : "",
+          scriptLine: "",
+          scriptCol: "",
+          funcName: "",
+          scriptLocEval: "",
+          callStack: "",
+        };
+        try {
+          logCall("event:pbjs:" + eventReference, [event], callContext, {});
+        } catch (err) {
+          console.log(
+            "Error occurred when handling event: ",
+            err.message,
+            err.stack,
+          );
+        }
+      };
+      (window as any).pbjs.onEvent(eventReference, handler);
+    };
+    [
+      "auctionInit",
+      "auctionEnd",
+      "bidAdjustment",
+      "bidTimeout",
+      "bidRequested",
+      "bidResponse",
+      "bidWon",
+      "setTargeting",
+      "requestBids",
+      "addAdUnits",
+      "adRenderFailed",
+      "bidderDone",
+    ].map(instrumentPrebidJsEvent);
+
+    // Instrument access to object properties and functions
+    instrumentObject((window as any).pbjs, "pbjs", {});
+  });
 
   /*
    * Start Instrumentation
