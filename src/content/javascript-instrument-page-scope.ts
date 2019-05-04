@@ -33,41 +33,72 @@ export const pageScript = function({
   /**
    * Prebid.js
    */
-
-  /**
-   * Wait for Prebid.js to be available
-   */
-  const prebidJsAvailable = new Promise(function(resolve) {
-    const now = Date.now();
-    /**
-     * Note: Since best practice for scripts consuming Prebid.js is
-     * to set up an window.pbjs object and window.pbjs.que array even
-     * before pbjs loads, we can't simply wait for window.pbjs,
-     * but instead wait for window.pbjs.onEvent, which only gets set
-     * once Prebid.js has loaded.
-     */
-    function check() {
-      if (
-        typeof (window as any).pbjs !== "undefined" &&
-        typeof (window as any).pbjs.onEvent !== "undefined"
-      ) {
-        return resolve();
-      } else {
-        // Keep checking for 10 seconds
-        if (Date.now() - now < 10000) {
-          setTimeout(check, 10);
+  const waitUntil = evaluator => {
+    return new Promise(function(resolve) {
+      const now = Date.now();
+      /**
+       * Note: Since best practice for scripts consuming Prebid.js is
+       * to set up an window.pbjs object and window.pbjs.que array even
+       * before pbjs loads, we can't simply wait for window.pbjs,
+       * but instead wait for window.pbjs.onEvent, which only gets set
+       * once Prebid.js has loaded.
+       */
+      function check() {
+        if (evaluator()) {
+          return resolve();
         } else {
-          console.log(
-            "Stopped checking for Prebid.js loading in a frame (10s have passed)",
-          );
+          // Keep checking for 10 seconds
+          if (Date.now() - now < 10000) {
+            setTimeout(check, 10);
+          } else {
+            console.log(
+              "Stopped checking for Prebid.js loading in a frame (10s have passed)",
+            );
+          }
         }
       }
-    }
-    check();
-  });
+      check();
+    });
+  };
 
+  /**
+   * Helper functions to wait for Prebid.js to be available
+   *
+   * Note: Since best practice for scripts consuming Prebid.js is
+   * to set up an window.pbjs object and window.pbjs.que array even
+   * before pbjs loads, we can't simply wait for window.pbjs,
+   * but instead wait for window.pbjs.onEvent, which only gets set
+   * once Prebid.js has loaded.
+   */
+  const prebidJsPlaceholderAvailable = waitUntil(
+    () => typeof (window as any).pbjs !== "undefined",
+  );
+  const prebidJsAvailable = waitUntil(
+    () =>
+      typeof (window as any).pbjs !== "undefined" &&
+      typeof (window as any).pbjs.onEvent !== "undefined",
+  );
+
+  let currentlyInstrumentedPbjsVersion;
+  prebidJsPlaceholderAvailable.then(function() {
+    console.log("Prebid.js placeholder available - instrumenting...");
+    currentlyInstrumentedPbjsVersion =
+      (window as any).pbjs.version !== undefined
+        ? String((window as any).pbjs.version)
+        : "placeholder";
+    // Instrument access to object properties and functions
+    const objectName = "pbjs<" + currentlyInstrumentedPbjsVersion + ">";
+    instrumentObject((window as any).pbjs, objectName, {});
+  });
   prebidJsAvailable.then(function() {
-    console.log("Prebid.js available - instrumenting...");
+    if (currentlyInstrumentedPbjsVersion === (window as any).pbjs.version) {
+      return;
+    }
+    console.log(
+      "Prebid.js loaded and different from what we previously instrumenting - instrumenting anew...",
+    );
+    currentlyInstrumentedPbjsVersion = (window as any).pbjs.version;
+    const objectName = "pbjs<" + currentlyInstrumentedPbjsVersion + ">";
 
     // Instrument events (Hack, since OpenWPM does not support instrumentation of events currently)
     const instrumentPrebidJsEvent = eventReference => {
@@ -104,7 +135,12 @@ export const pageScript = function({
           callStack: "",
         };
         try {
-          logCall("event:pbjs:" + eventReference, [event], callContext, {});
+          logCall(
+            "event:" + objectName + ":" + eventReference,
+            [event],
+            callContext,
+            {},
+          );
         } catch (err) {
           console.log(
             "Error occurred when handling event: ",
@@ -131,7 +167,7 @@ export const pageScript = function({
     ].map(instrumentPrebidJsEvent);
 
     // Instrument access to object properties and functions
-    instrumentObject((window as any).pbjs, "pbjs", {});
+    instrumentObject((window as any).pbjs, objectName, {});
   });
 
   /*
