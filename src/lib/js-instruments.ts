@@ -697,5 +697,11 @@ export function jsInstruments(event_id, sendMessagesToLogger) {
     });
   }
 
-  return { instrumentObject, instrumentObjectProperty };
+  return {
+    instrumentObject,
+    instrumentObjectProperty,
+    instrumentFunction,
+    logCall,
+    logValue,
+  };
 }
