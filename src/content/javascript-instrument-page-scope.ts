@@ -4,7 +4,7 @@
 
 export const pageScript = function({
   jsInstruments,
-  instrumentFingerprintingApis,
+  // instrumentFingerprintingApis,
 }) {
   // messages the injected script
   function sendMessagesToLogger($event_id, messages) {
@@ -17,7 +17,10 @@ export const pageScript = function({
 
   const event_id = document.currentScript.getAttribute("data-event-id");
 
-  const { instrumentObject, instrumentObjectProperty } = jsInstruments(
+  const {
+    instrumentObject,
+    // instrumentObjectProperty,
+  } = jsInstruments(
     event_id,
     sendMessagesToLogger,
   );
@@ -68,7 +71,7 @@ export const pageScript = function({
    */
   // TODO: user should be able to choose what to instrument
 
-  instrumentFingerprintingApis({ instrumentObjectProperty, instrumentObject });
+  // instrumentFingerprintingApis({ instrumentObjectProperty, instrumentObject });
 
   if (testing) {
     console.log(
