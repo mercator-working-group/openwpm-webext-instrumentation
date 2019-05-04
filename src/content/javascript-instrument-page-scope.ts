@@ -33,23 +33,37 @@ export const pageScript = function({
    * Prebid.js
    */
 
-  // Wait for window.pbjs to be available
-  const prebidJsAvailable = new Promise(function (resolve) {
+  /**
+   * Wait for Prebid.js to be available
+   */
+  const prebidJsAvailable = new Promise(function(resolve) {
     const now = Date.now();
-      function check() {
-        if (typeof (window as any).pbjs !== "undefined") {
-          return resolve();
+    /**
+     * Note: Since best practice for scripts consuming Prebid.js is
+     * to set up an window.pbjs object and window.pbjs.que array even
+     * before pbjs loads, we can't simply wait for window.pbjs,
+     * but instead wait for window.pbjs.onEvent, which only gets set
+     * once Prebid.js has loaded.
+     */
+    function check() {
+      if (
+        typeof (window as any).pbjs !== "undefined" &&
+        typeof (window as any).pbjs.onEvent !== "undefined"
+      ) {
+        return resolve();
+      } else {
+        // Keep checking for 10 seconds
+        if (Date.now() - now < 10000) {
+          setTimeout(check, 10);
         } else {
-          // Keep checking for 10 seconds
-          if (Date.now() - now < 10000) {
-            setTimeout(check, 10);
-          } else {
-            console.log("Stopped checking for Prebid.js loading on this page (10s have passed)");
-          }
+          console.log(
+            "Stopped checking for Prebid.js loading in a frame (10s have passed)",
+          );
         }
       }
-      check();
-    });
+    }
+    check();
+  });
 
   prebidJsAvailable.then(function() {
     console.log("Prebid.js available - instrumenting...");
