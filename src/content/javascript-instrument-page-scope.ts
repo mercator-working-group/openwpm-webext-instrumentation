@@ -20,10 +20,7 @@ export const pageScript = function({
   const {
     instrumentObject,
     // instrumentObjectProperty,
-  } = jsInstruments(
-    event_id,
-    sendMessagesToLogger,
-  );
+  } = jsInstruments(event_id, sendMessagesToLogger);
 
   const testing =
     document.currentScript.getAttribute("data-testing") === "true";
@@ -54,7 +51,7 @@ export const pageScript = function({
       check();
     });
 
-  prebidJsAvailable.then(function () {
+  prebidJsAvailable.then(function() {
     console.log("Prebid.js available - instrumenting...");
     instrumentObject(
       (window as any).pbjs,
